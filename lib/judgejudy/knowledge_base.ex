@@ -1,5 +1,6 @@
 defmodule Judgejudy.KnowledgeBase do
   alias Judgejudy.{Repo, KnowledgeBase.Embeddings}
+  require Logger
 
   @rrf_k 60
   @fts_limit 20
