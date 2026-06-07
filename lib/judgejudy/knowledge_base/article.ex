@@ -16,7 +16,7 @@ defmodule Judgejudy.KnowledgeBase.Article do
 
   def changeset(article, attrs) do
     article
-    |> cast(attrs, [:intent, :title, :body, :keywords, :confidence, :embedding])
+    |> cast(attrs, [:intent, :category, :title, :body, :keywords, :confidence, :embedding])
     |> validate_required([:intent, :title, :body])
     |> validate_inclusion(:intent, ~w(billing support sales general))
   end
