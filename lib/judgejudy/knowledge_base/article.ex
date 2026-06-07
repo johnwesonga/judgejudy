@@ -5,6 +5,7 @@ defmodule Judgejudy.KnowledgeBase.Article do
 
   schema "kb_articles" do
     field(:intent, :string)
+    field(:category, :string, default: "general")
     field(:title, :string)
     field(:body, :string)
     field(:keywords, {:array, :string}, default: [])
