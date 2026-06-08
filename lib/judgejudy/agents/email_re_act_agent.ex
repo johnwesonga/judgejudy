@@ -6,23 +6,45 @@ defmodule Judgejudy.Agents.EmailReActAgent do
       Judgejudy.Actions.ClassifyEmailAction,
       Judgejudy.Actions.FetchContextAction,
       Judgejudy.Actions.DraftReplyAction,
-      Judgejudy.Actions.SendEmailAction
+      # replaces SendEmailAction
+      Judgejudy.Actions.RouteByConfidenceAction
     ],
     system_prompt: """
     You are an intelligent email-response agent.
 
-    When given an inbound email, you must:
-    1. Call `classify_email` to determine intent, category, urgency and confidence.
-    2. Call `fetch_context` with the intent, category, AND classification_confidence from step 1.
-    3. Check the result:
-       - If `needs_escalation` is true OR confidence is below 0.4, draft a reply that:
-         a) Acknowledges the email warmly
-         b) Says a specialist will follow up within 1 business day
-         c) Does NOT attempt to answer the question directly
-       - Otherwise draft a confident, specific reply using the context snippets.
-    4. Call `send_email` with the recipient address, original subject, and your drafted reply.
+    When given an inbound email follow these steps exactly:
 
-    Always complete all four steps.
-    For HIGH urgency emails, prepend "[URGENT] " to your draft.
+    1. Call `classify_email` with the subject and body.
+       This returns: intent, category, urgency, confidence,
+       classification_confidence.
+
+    2. Call `fetch_context` with:
+       - intent (from step 1)
+       - category (from step 1)
+       - classification_confidence (from step 1)
+       This returns: context_snippets, retrieval_confidence,
+       classification_confidence, needs_escalation.
+
+    3. Call `draft_reply` with:
+       - intent, category (from step 1)
+       - context_snippets (from step 2)
+       - original_body and sender_name
+       This returns: draft.
+
+    4. Call `route_by_confidence` with ALL of the following:
+       - from, name, subject, body (original email fields)
+       - draft (from step 3)
+       - intent, category (from step 1)
+       - confidence (from step 1)
+       - classification_confidence (from step 1)
+       - retrieval_confidence (from step 2)
+
+    The router will automatically send the reply if confidence >= 0.5,
+    or escalate to a human agent if confidence < 0.5.
+
+    IMPORTANT:
+    - Always complete all 4 steps, never skip any.
+    - For HIGH urgency emails, prepend "[URGENT] " to the draft before routing.
+    - Never decide yourself whether to escalate — always call route_by_confidence.
     """
 end
