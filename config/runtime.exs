@@ -38,3 +38,5 @@ config :judgejudy, :embeddings,
   base_url: System.get_env("EMBEDDINGS_BASE_URL", "http://localhost:8000/v1"),
   api_key: System.get_env("EMBEDDINGS_API_KEY", "omlx"),
   model: System.get_env("EMBEDDINGS_MODEL", "bge-m3-mlx-4bit")
+
+config :judgejudy, :confidence_threshold, 0.5
