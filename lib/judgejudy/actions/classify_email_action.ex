@@ -43,30 +43,35 @@ defmodule Judgejudy.Actions.ClassifyEmailAction do
     }
   }
 
+  import Judgejudy.Actions.ActionLogger
+  require Logger
+
   @impl true
-  def run(%{subject: subject, body: body}, _ctx) do
-    text = String.downcase("#{subject} #{body}")
-    words = String.split(text, ~r/\W+/, trim: true)
+  def run(%{subject: subject, body: body} = params, _ctx) do
+    log_run("ClassifyEmailAction", params) do
+      text = String.downcase("#{subject} #{body}")
+      words = String.split(text, ~r/\W+/, trim: true)
 
-    {intent, intent_confidence} = classify_intent(words)
-    {category, category_confidence} = classify_category(words, intent)
+      {intent, intent_confidence} = classify_intent(words)
+      {category, category_confidence} = classify_category(words, intent)
 
-    urgency = classify_urgency(text)
+      urgency = classify_urgency(text)
 
-    # Overall classification confidence — weighted average
-    # Intent carries more weight than category
-    overall_confidence =
-      Float.round(intent_confidence * 0.6 + category_confidence * 0.4, 2)
+      # Overall classification confidence — weighted average
+      # Intent carries more weight than category
+      overall_confidence =
+        Float.round(intent_confidence * 0.6 + category_confidence * 0.4, 2)
 
-    {:ok,
-     %{
-       intent: intent,
-       category: category,
-       urgency: urgency,
-       intent_confidence: Float.round(intent_confidence, 2),
-       category_confidence: Float.round(category_confidence, 2),
-       confidence: overall_confidence
-     }}
+      {:ok,
+       %{
+         intent: intent,
+         category: category,
+         urgency: urgency,
+         intent_confidence: Float.round(intent_confidence, 2),
+         category_confidence: Float.round(category_confidence, 2),
+         confidence: overall_confidence
+       }}
+    end
   end
 
   defp classify_intent(words) do

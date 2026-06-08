@@ -14,3 +14,5 @@ config :jido_ai,
 config :judgejudy, Judgejudy.Jido, max_tasks: 1000, agent_pools: []
 
 config :judgejudy, ecto_repos: [Judgejudy.Repo]
+
+config :judgejudy, :confidence_threshold, 0.5

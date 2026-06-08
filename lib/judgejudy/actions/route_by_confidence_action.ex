@@ -20,26 +20,29 @@ defmodule Judgejudy.Actions.RouteByConfidenceAction do
     ]
 
   require Logger
+  import Judgejudy.Actions.ActionLogger
 
   @confidence_threshold Application.compile_env(:judgejudy, :confidence_threshold, 0.5)
 
   @impl true
   def run(params, ctx) do
-    Logger.info("""
-    RouteByConfidence:
-      from=#{params.from} subject=#{params.subject}
-      confidence=#{params.confidence} threshold=#{@confidence_threshold}
-    """)
+    log_run("RouteByConfidenceAction", params) do
+      Logger.info("""
+      RouteByConfidence:
+        from=#{params.from} subject=#{params.subject}
+        confidence=#{params.confidence} threshold=#{@confidence_threshold}
+      """)
 
-    if params.confidence < @confidence_threshold do
-      Logger.warning(
-        "Confidence #{params.confidence} below #{@confidence_threshold} — escalating"
-      )
+      if params.confidence < @confidence_threshold do
+        Logger.warning(
+          "Confidence #{params.confidence} below #{@confidence_threshold} — escalating"
+        )
 
-      Judgejudy.Actions.EscalateToHumanAction.run(params, ctx)
-    else
-      Logger.info("Confidence #{params.confidence} above threshold — sending reply")
-      send_reply(params)
+        Judgejudy.Actions.EscalateToHumanAction.run(params, ctx)
+      else
+        Logger.info("Confidence #{params.confidence} above threshold — sending reply")
+        send_reply(params)
+      end
     end
   end
 

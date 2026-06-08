@@ -10,30 +10,33 @@ defmodule Judgejudy.Actions.DraftReplyAction do
         sender_name: Zoi.string()
       })
 
+  import Judgejudy.Actions.ActionLogger
   require Logger
   @impl true
   def run(params, _ctx) do
-    # The ReAct agent's outer LLM will already compose the draft;
-    # this action can format/validate it instead.
-    prefix =
-      if params.intent == "support" and
-           String.contains?(params.original_body, "urgent"),
-         do: "[URGENT] ",
-         else: ""
+    log_run("DraftReplyAction", params) do
+      # The ReAct agent's outer LLM will already compose the draft;
+      # this action can format/validate it instead.
+      prefix =
+        if params.intent == "support" and
+             String.contains?(params.original_body, "urgent"),
+           do: "[URGENT] ",
+           else: ""
 
-    draft = """
-    #{prefix}Hi #{params.sender_name},
+      draft = """
+      #{prefix}Hi #{params.sender_name},
 
-    Thank you for reaching out about #{params.intent}.
+      Thank you for reaching out about #{params.intent}.
 
-    #{List.first(params.context_snippets, "We'll look into this shortly.")}
+      #{List.first(params.context_snippets, "We'll look into this shortly.")}
 
-    Best regards,
-    Support Team
-    """
+      Best regards,
+      Support Team
+      """
 
-    Logger.info("[DraftReplyAction] draft: #{draft}")
+      Logger.info("[DraftReplyAction] draft: #{draft}")
 
-    {:ok, %{draft: String.trim(draft)}}
+      {:ok, %{draft: String.trim(draft)}}
+    end
   end
 end

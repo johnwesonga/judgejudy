@@ -74,7 +74,7 @@ defmodule Judgejudy.KnowledgeBase do
       SELECT
         COALESCE(fts.id, semantic.id) AS id,
         COALESCE(1.0 / (#{@rrf_k} + fts.rank),     0) +
-        COALESCE(1.0 / (#{@rrf_k} + semantic.rank), 0) AS rrf_score,
+        COALESCE(1.5 / (#{@rrf_k} + semantic.rank), 0) AS rrf_score,
         COALESCE(fts.score,     0) AS fts_score,
         COALESCE(semantic.score, 0) AS semantic_score
       FROM fts
