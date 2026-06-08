@@ -37,20 +37,15 @@ defmodule Judgejudy.KnowledgeBase do
   defp hybrid_query(query_text, embedding, intent, category, limit) do
     vec_literal = Pgvector.new(embedding)
 
-    # Build the boost CASE expressions — applied after RRF
     intent_boost_sql =
-      if intent do
-        "CASE WHEN kb_articles.intent = '#{intent}' THEN #{@intent_boost} ELSE 0 END"
-      else
-        "0"
-      end
+      if intent,
+        do: "CASE WHEN kb_articles.intent = '#{intent}' THEN #{@intent_boost} ELSE 0 END",
+        else: "0"
 
     category_boost_sql =
-      if category do
-        "CASE WHEN kb_articles.category = '#{category}' THEN #{@category_boost} ELSE 0 END"
-      else
-        "0"
-      end
+      if category,
+        do: "CASE WHEN kb_articles.category = '#{category}' THEN #{@category_boost} ELSE 0 END",
+        else: "0"
 
     sql = """
     WITH fts AS (
@@ -78,8 +73,10 @@ defmodule Judgejudy.KnowledgeBase do
     rrf AS (
       SELECT
         COALESCE(fts.id, semantic.id) AS id,
-        COALESCE(1.5 / (#{@rrf_k} + fts.rank),     0) +
-        COALESCE(1.0 / (#{@rrf_k} + semantic.rank), 0) AS rrf_score
+        COALESCE(1.0 / (#{@rrf_k} + fts.rank),     0) +
+        COALESCE(1.0 / (#{@rrf_k} + semantic.rank), 0) AS rrf_score,
+        COALESCE(fts.score,     0) AS fts_score,
+        COALESCE(semantic.score, 0) AS semantic_score
       FROM fts
       FULL OUTER JOIN semantic ON fts.id = semantic.id
     )
@@ -91,6 +88,8 @@ defmodule Judgejudy.KnowledgeBase do
       kb_articles.body,
       kb_articles.keywords,
       rrf.rrf_score,
+      rrf.fts_score,
+      rrf.semantic_score,
       rrf.rrf_score + #{intent_boost_sql} + #{category_boost_sql} AS final_score
     FROM rrf
     JOIN kb_articles ON kb_articles.id = rrf.id
@@ -103,17 +102,43 @@ defmodule Judgejudy.KnowledgeBase do
         []
 
       {:ok, %{rows: rows}} ->
-        Enum.map(rows, fn [id, intent, category, title, body, keywords, rrf_score, final_score] ->
-          %{
-            id: id,
-            intent: intent,
-            category: category,
-            title: title,
-            body: body,
-            keywords: keywords,
-            rrf_score: rrf_score,
-            final_score: final_score
-          }
+        # Normalize final_score across results into a 0-1 retrieval confidence
+        raw =
+          Enum.map(rows, fn [
+                              id,
+                              intent,
+                              category,
+                              title,
+                              body,
+                              keywords,
+                              rrf_score,
+                              fts_score,
+                              semantic_score,
+                              final_score
+                            ] ->
+            %{
+              id: id,
+              intent: intent,
+              category: category,
+              title: title,
+              body: body,
+              keywords: keywords,
+              rrf_score: rrf_score,
+              fts_score: fts_score,
+              semantic_score: semantic_score,
+              final_score: final_score
+            }
+          end)
+
+        max_score = raw |> Enum.map(& &1.final_score) |> Enum.max(fn -> 1.0 end)
+
+        Enum.map(raw, fn article ->
+          retrieval_confidence =
+            if max_score > 0,
+              do: Float.round(article.final_score / max_score, 2),
+              else: 0.0
+
+          Map.put(article, :retrieval_confidence, retrieval_confidence)
         end)
 
       {:error, reason} ->
