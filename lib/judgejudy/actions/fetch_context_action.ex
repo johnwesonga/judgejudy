@@ -26,44 +26,91 @@ defmodule Judgejudy.Actions.FetchContextAction do
         category = Map.get(params, :category)
         classification_confidence = Map.get(params, :classification_confidence, 1.0)
 
-        case Judgejudy.KnowledgeBase.lookup(intent,
-               limit: 3,
-               category: category
-             ) do
-          {:ok, []} ->
-            {:ok,
-             %{
-               context_snippets: ["No specific KB articles found. Use your best judgement."],
-               retrieval_confidence: 0.0,
-               needs_escalation: true
-             }}
-
+        case Judgejudy.KnowledgeBase.lookup(intent, limit: 3, category: category) do
           {:ok, articles} ->
-            top_retrieval_confidence =
-              articles |> Enum.map(& &1.retrieval_confidence) |> Enum.max()
+            handle_results(articles, classification_confidence)
 
-            snippets =
-              Enum.map(articles, fn a ->
-                "[#{a.intent}/#{a.category}] #{a.title}: #{a.body}"
-              end)
+          {:error, :embedding_failed} ->
+            # Embedding API is down — fall back to FTS-only keyword search
+            Logger.warning("FetchContext: embedding failed, falling back to keyword search")
+            keyword_fallback(intent, category, classification_confidence)
 
-            # Escalate if either classification or retrieval is low confidence
-            needs_escalation =
-              classification_confidence < @low_confidence_threshold or
-                top_retrieval_confidence < @low_confidence_threshold
+          {:error, :retrieval_failed} ->
+            # DB is down — return degraded response, don't crash the agent
+            Logger.error("FetchContext: retrieval failed, returning degraded response")
 
             {:ok,
              %{
-               context_snippets: snippets,
-               retrieval_confidence: Float.round(top_retrieval_confidence, 2),
-               classification_confidence: Float.round(classification_confidence, 2),
-               needs_escalation: needs_escalation
+               context_snippets: [
+                 "KB temporarily unavailable. Respond helpfully from general knowledge."
+               ],
+               retrieval_confidence: 0.0,
+               classification_confidence: classification_confidence,
+               needs_escalation: true,
+               degraded: true
              }}
-
-          {:error, reason} ->
-            {:error, "KB lookup failed: #{inspect(reason)}"}
         end
       end
     end
+  end
+
+  defp handle_results([], classification_confidence) do
+    {:ok,
+     %{
+       context_snippets: ["No matching KB articles found. Use your best judgement."],
+       retrieval_confidence: 0.0,
+       classification_confidence: classification_confidence,
+       needs_escalation: true
+     }}
+  end
+
+  defp handle_results(articles, classification_confidence) do
+    top_retrieval_confidence =
+      articles |> Enum.map(& &1.retrieval_confidence) |> Enum.max()
+
+    snippets =
+      Enum.map(articles, fn a ->
+        "[#{a.intent}/#{a.category}] #{a.title}: #{a.body}"
+      end)
+
+    needs_escalation =
+      classification_confidence < @low_confidence_threshold or
+        top_retrieval_confidence < @low_confidence_threshold
+
+    {:ok,
+     %{
+       context_snippets: snippets,
+       retrieval_confidence: Float.round(top_retrieval_confidence, 2),
+       classification_confidence: Float.round(classification_confidence, 2),
+       needs_escalation: needs_escalation
+     }}
+  end
+
+  defp keyword_fallback(intent, _category, classification_confidence) do
+    # Pure Postgres FTS, no pgvector
+    import Ecto.Query
+
+    articles =
+      from(a in Judgejudy.KnowledgeBase.Article,
+        where: a.intent == ^Atom.to_string(intent),
+        order_by: [desc: a.inserted_at],
+        limit: 3,
+        select: %{title: a.title, body: a.body, intent: a.intent, category: a.category}
+      )
+      |> Judgejudy.Repo.all()
+
+    snippets =
+      Enum.map(articles, fn a ->
+        "[#{a.intent}/#{a.category}] #{a.title}: #{a.body}"
+      end)
+
+    {:ok,
+     %{
+       context_snippets: snippets,
+       # low but not zero — we have something
+       retrieval_confidence: 0.4,
+       classification_confidence: classification_confidence,
+       needs_escalation: classification_confidence < @low_confidence_threshold
+     }}
   end
 end
