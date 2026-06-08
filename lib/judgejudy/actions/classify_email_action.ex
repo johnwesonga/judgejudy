@@ -103,7 +103,7 @@ defmodule Judgejudy.Actions.ClassifyEmailAction do
       nil ->
         {"general", 0.3}
 
-      {_category, 0.0} ->
+      {_category, +0.0} ->
         {"general", 0.3}
 
       {best_category, best_score} ->

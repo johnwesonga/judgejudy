@@ -123,10 +123,10 @@ defmodule Judgejudy.KnowledgeBase do
               title: title,
               body: body,
               keywords: keywords,
-              rrf_score: rrf_score,
-              fts_score: fts_score,
-              semantic_score: semantic_score,
-              final_score: final_score
+              rrf_score: to_float(rrf_score),
+              fts_score: to_float(fts_score),
+              semantic_score: to_float(semantic_score),
+              final_score: to_float(final_score)
             }
           end)
 
@@ -134,7 +134,7 @@ defmodule Judgejudy.KnowledgeBase do
 
         Enum.map(raw, fn article ->
           retrieval_confidence =
-            if max_score > 0,
+            if max_score > 0.0,
               do: Float.round(article.final_score / max_score, 2),
               else: 0.0
 
@@ -147,6 +147,11 @@ defmodule Judgejudy.KnowledgeBase do
     end
   end
 
+  defp to_float(%Decimal{} = d), do: Decimal.to_float(d)
+  defp to_float(f) when is_float(f), do: f
+  defp to_float(i) when is_integer(i), do: i / 1.0
+  defp to_float(nil), do: 0.0
+
   defp intent_to_query("billing", nil), do: "invoice payment billing charge refund"
   defp intent_to_query("billing", category), do: "billing #{category} invoice payment"
   defp intent_to_query("support", nil), do: "help support bug error troubleshoot"
@@ -157,6 +162,6 @@ defmodule Judgejudy.KnowledgeBase do
   defp intent_to_query(_, _), do: "help information"
 
   # Atom version for backward compat
-  defp intent_to_query(intent, category) when is_atom(intent),
-    do: intent_to_query(Atom.to_string(intent), category)
+  # defp intent_to_query(intent, category) when is_atom(intent),
+  # do: intent_to_query(Atom.to_string(intent), category)
 end
