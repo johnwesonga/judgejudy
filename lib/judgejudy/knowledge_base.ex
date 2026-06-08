@@ -28,9 +28,13 @@ defmodule Judgejudy.KnowledgeBase do
     category = Keyword.get(opts, :category)
     query = intent_to_query(intent, category)
 
-    with {:ok, embedding} <- Embeddings.embed(query) do
-      results = hybrid_query(query, embedding, Atom.to_string(intent), category, limit)
-      {:ok, results}
+    case Embeddings.embed(query) do
+      {:ok, embedding} ->
+        hybrid_query(query, embedding, Atom.to_string(intent), category, limit)
+
+      {:error, reason} ->
+        Logger.error("KnowledgeBase: embedding failed: #{inspect(reason)}")
+        {:error, :embedding_failed}
     end
   end
 
@@ -99,7 +103,7 @@ defmodule Judgejudy.KnowledgeBase do
 
     case Repo.query(sql, [query_text, vec_literal]) do
       {:ok, %{rows: []}} ->
-        []
+        {:ok, []}
 
       {:ok, %{rows: rows}} ->
         # Normalize final_score across results into a 0-1 retrieval confidence
@@ -141,10 +145,14 @@ defmodule Judgejudy.KnowledgeBase do
           Map.put(article, :retrieval_confidence, retrieval_confidence)
         end)
 
-      {:error, reason} ->
-        Logger.error("KnowledgeBase.hybrid_query failed: #{inspect(reason)}")
-        []
+      {:error, %Postgrex.Error{} = e} ->
+        Logger.error("KnowledgeBase: query failed: #{inspect(e)}")
+        {:error, :retrieval_failed}
     end
+  rescue
+    e ->
+      Logger.error("KnowledgeBase: unexpected error: #{Exception.message(e)}")
+      {:error, :retrieval_failed}
   end
 
   defp to_float(%Decimal{} = d), do: Decimal.to_float(d)
