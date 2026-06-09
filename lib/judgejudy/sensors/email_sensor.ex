@@ -2,7 +2,7 @@ defmodule Judgejudy.Sensors.EmailSensor do
   use GenServer
   require Logger
 
-  @target_subjects ~w(support invoice demo help)
+  @target_subjects ~w(support invoice demo help feedback followup inquiry info)
 
   def start_link(opts) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
@@ -18,7 +18,9 @@ defmodule Judgejudy.Sensors.EmailSensor do
   @impl true
   def handle_info({:email, _client, email}, state) do
     subject = (email[:subject] || "") |> String.trim()
-
+    Logger.info("EmailSensor: received email subject=#{subject}")
+    dispatch_to_agent(email)
+    # Remove the subject filter entirely and let ClassifyEmailAction handle routing
     if relevant?(subject, state.target_subjects) do
       Logger.info("EmailSensor matched: #{subject}")
       dispatch_to_agent(email)
@@ -28,7 +30,7 @@ defmodule Judgejudy.Sensors.EmailSensor do
   end
 
   def handle_info(_msg, state), do: {:noreply, state}
-
+  # Remove the subject filter entirely and let ClassifyEmailAction handle routing
   defp relevant?(subject, target_subjects) do
     subject_down = String.downcase(subject)
     Enum.any?(target_subjects, &String.contains?(subject_down, &1))

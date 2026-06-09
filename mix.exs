@@ -30,8 +30,8 @@ defmodule Judgejudy.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:jido, "~> 2.0"},
-      {:jido_ai, "~> 2.0.0-rc.0"},
+      {:jido, "~> 2.3.0"},
+      {:jido_ai, "~> 2.2.0"},
       {:swoosh, "~> 1.17"},
       {:gen_smtp, "~> 1.3"},
       {:hackney, "~> 4.0"},

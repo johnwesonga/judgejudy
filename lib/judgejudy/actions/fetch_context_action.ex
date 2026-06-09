@@ -28,7 +28,7 @@ defmodule Judgejudy.Actions.FetchContextAction do
 
         case Judgejudy.KnowledgeBase.lookup(intent, limit: 3, category: category) do
           {:ok, articles} ->
-            handle_results(articles, classification_confidence)
+            handle_results(articles, classification_confidence, intent)
 
           {:error, :embedding_failed} ->
             # Embedding API is down — fall back to FTS-only keyword search
@@ -54,17 +54,21 @@ defmodule Judgejudy.Actions.FetchContextAction do
     end
   end
 
-  defp handle_results([], classification_confidence) do
+  defp handle_results(articles, classification_confidence, intent)
+
+  defp handle_results([], classification_confidence, intent) do
+    fallback = Judgejudy.KnowledgeBase.Fallbacks.get(intent)
+
     {:ok,
      %{
-       context_snippets: ["No matching KB articles found. Use your best judgement."],
-       retrieval_confidence: 0.0,
+       context_snippets: [fallback],
+       retrieval_confidence: 0.2,
        classification_confidence: classification_confidence,
        needs_escalation: true
      }}
   end
 
-  defp handle_results(articles, classification_confidence) do
+  defp handle_results(articles, classification_confidence, _intent) do
     top_retrieval_confidence =
       articles |> Enum.map(& &1.retrieval_confidence) |> Enum.max()
 

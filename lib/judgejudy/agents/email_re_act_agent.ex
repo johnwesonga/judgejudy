@@ -1,7 +1,7 @@
 defmodule Judgejudy.Agents.EmailReActAgent do
   use Jido.AI.Agent,
     name: "email_react_agent",
-    model: :capable,
+    model: :local,
     tools: [
       Judgejudy.Actions.ClassifyEmailAction,
       Judgejudy.Actions.FetchContextAction,

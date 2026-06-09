@@ -15,29 +15,33 @@ defmodule Judgejudy.Actions.EscalateToHumanAction do
     ]
 
   require Logger
+  import Judgejudy.Actions.ActionLogger
 
   # Who gets the escalation notification
-  @escalation_email System.get_env("ESCALATION_EMAIL", "support-team@myapp.com")
+  #@escalation_email System.get_env("ESCALATION_EMAIL", "support-team@myapp.com")
+  @escalation_email "projozangu+support-team@gmail.com"
 
   @impl true
   def run(params, _ctx) do
-    Logger.warning("""
-    Escalating email to human:
-      from=#{params.from}
-      subject=#{params.subject}
-      intent=#{params.intent}/#{params.category}
-      confidence=#{params.confidence}
-    """)
+    log_run("EscalateToHumanAction", params) do
+      Logger.warning("""
+      Escalating email to human:
+        from=#{params.from}
+        subject=#{params.subject}
+        intent=#{params.intent}/#{params.category}
+        confidence=#{params.confidence}
+      """)
 
-    with {:ok, _} <- send_acknowledgement(params),
-         {:ok, _} <- notify_human_agent(params) do
-      {:ok,
-       %{
-         escalated: true,
-         escalated_to: @escalation_email,
-         reason: "confidence_below_threshold",
-         confidence: params.confidence
-       }}
+      with {:ok, _} <- send_acknowledgement(params),
+           {:ok, _} <- notify_human_agent(params) do
+        {:ok,
+         %{
+           escalated: true,
+           escalated_to: @escalation_email,
+           reason: "confidence_below_threshold",
+           confidence: params.confidence
+         }}
+      end
     end
   end
 

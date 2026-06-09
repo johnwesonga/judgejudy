@@ -11,6 +11,12 @@ config :jido_ai,
     }
   }
 
+config :jido_ai, :providers,
+  openai: [
+    api_key: "not-needed",
+    base_url: "http://localhost:8000/v1"
+  ]
+
 config :judgejudy, Judgejudy.Jido, max_tasks: 1000, agent_pools: []
 
 config :judgejudy, ecto_repos: [Judgejudy.Repo]

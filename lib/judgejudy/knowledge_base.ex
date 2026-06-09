@@ -30,7 +30,18 @@ defmodule Judgejudy.KnowledgeBase do
 
     case Embeddings.embed(query) do
       {:ok, embedding} ->
-        hybrid_query(query, embedding, Atom.to_string(intent), category, limit)
+        case hybrid_query(query, embedding, Atom.to_string(intent), category, limit) do
+          # already wrapped
+          {:ok, results} ->
+            {:ok, results}
+
+          {:error, reason} ->
+            {:error, reason}
+
+          # bare list — wrap it
+          results when is_list(results) ->
+            {:ok, results}
+        end
 
       {:error, reason} ->
         Logger.error("KnowledgeBase: embedding failed: #{inspect(reason)}")
@@ -136,14 +147,17 @@ defmodule Judgejudy.KnowledgeBase do
 
         max_score = raw |> Enum.map(& &1.final_score) |> Enum.max(fn -> 1.0 end)
 
-        Enum.map(raw, fn article ->
-          retrieval_confidence =
-            if max_score > 0.0,
-              do: Float.round(article.final_score / max_score, 2),
-              else: 0.0
+        results =
+          Enum.map(raw, fn article ->
+            retrieval_confidence =
+              if max_score > 0.0,
+                do: Float.round(article.final_score / max_score, 2),
+                else: 0.0
 
-          Map.put(article, :retrieval_confidence, retrieval_confidence)
-        end)
+            Map.put(article, :retrieval_confidence, retrieval_confidence)
+          end)
+
+        {:ok, results}
 
       {:error, %Postgrex.Error{} = e} ->
         Logger.error("KnowledgeBase: query failed: #{inspect(e)}")
